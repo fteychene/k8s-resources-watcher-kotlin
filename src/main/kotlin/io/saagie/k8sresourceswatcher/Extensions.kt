@@ -10,10 +10,7 @@ import com.squareup.okhttp.RequestBody
 import com.squareup.okhttp.internal.http.HttpMethod
 import io.kubernetes.client.ApiClient
 import io.kubernetes.client.Pair
-import io.kubernetes.client.models.V1ConfigMap
-import io.kubernetes.client.models.V1Event
-import io.kubernetes.client.models.V1Pod
-import io.kubernetes.client.models.V1beta1CronJob
+import io.kubernetes.client.models.*
 
 const val APPLICATION_JSON = "application/json; charset=utf-8"
 
@@ -24,6 +21,7 @@ fun <T> resourceVersion(resource: T): Option<String> =
         is V1Event -> resource.metadata.resourceVersion.toOption()
         is V1ConfigMap -> resource.metadata.resourceVersion.toOption()
         is V1beta1CronJob -> resource.metadata.resourceVersion.toOption()
+        is V1Namespace -> resource.metadata.resourceVersion.toOption()
         else -> None
     }
 
