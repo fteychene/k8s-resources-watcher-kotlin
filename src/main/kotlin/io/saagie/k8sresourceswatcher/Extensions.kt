@@ -28,7 +28,7 @@ fun <T> resourceVersion(resource: T): Option<String> =
 fun toParams(vararg params: Option<kotlin.Pair<String, String>>): List<kotlin.Pair<String, String>> =
     params.fold(listOf(), { acc, option -> option.fold({ acc }, { acc + it }) })
 
-fun buildApiPath(basePath: String, params: List<kotlin.Pair<String, String>>): String =
+fun buildApiPath(basePath: String, params: List<kotlin.Pair<String, String>> = listOf()): String =
     params.fold(basePath to "?", { (url, sep), (key, value) -> "$url$sep$key=$value" to "&" }).first
 
 

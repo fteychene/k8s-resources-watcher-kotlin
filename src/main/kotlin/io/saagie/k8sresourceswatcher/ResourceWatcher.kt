@@ -1,11 +1,11 @@
 package io.saagie.k8sresourceswatcher
 
 import arrow.core.*
+import arrow.core.extensions.`try`.applicative.product
+import arrow.core.extensions.id.monad.monad
 import arrow.data.State
-import arrow.data.fix
+import arrow.data.extensions.statet.monad.binding
 import arrow.data.run
-import arrow.instances.ForState
-import arrow.instances.extensions
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -139,14 +139,12 @@ fun <T> readBody() = State<Watcher, WatchItem<T>> { state ->
  *  - Check if the body is exhausted
  */
 fun responseBody() = State<Watcher, Try<ResponseBody>> { state ->
-    val computedBody = ForTry extensions {
-        // Make call if the body is invalid
-        val body = state.body.recoverWith { executeCall(buildWatchCall(state)) }
-        // Test the source body is not exhausted
-        body.product(body.flatMap { Try { it.source().exhausted() } }).fix()
-            .filter { (_, exausthed) -> exausthed == false }
-            .map { it.a }.fix()
-    }
+    // Make call if the body is invalid
+    val body = state.body.handleErrorWith { executeCall(buildWatchCall(state)) }
+    // Test the source body is not exhausted
+    val computedBody = body.product(body.flatMap { Try { it.source().exhausted() } }).fix()
+        .filter { (_, exausthed) -> exausthed == false }
+        .map { it.a }.fix()
 
     state.copy(body = computedBody) toT computedBody
 }
@@ -154,12 +152,10 @@ fun responseBody() = State<Watcher, Try<ResponseBody>> { state ->
 /**
  * Read the reponse body from state, reopenthe connection if needed and try to read the next event
  */
-fun <T> readNextResponse() =
-    ForState<Watcher>() extensions {
-        binding {
-            responseBody().bind()
-            readBody<T>().bind()
-        }.fix()
+fun <T> readNextResponse(): State<Watcher, WatchItem<T>> =
+    binding(Id.monad()) {
+        responseBody().bind()
+        readBody<T>().bind()
     }
 
 /**
@@ -177,9 +173,9 @@ fun buildWatchCall(watcher: Watcher): Call {
 }
 
 /**
- * Watch a Kubernetes ressources. Generate a {@code Sequence } of {@code Try<WatchResponse<T>> } where {@code T } is the resource type watched.
+ * Watch a Kubernetes ressources. Try to generate a {@code Sequence } of {@code WatchData<T> } where {@code T } is the resource type watched.
  *
- * Optional paraméters :
+ * Optional parameters :
  *  * fieldSelector: {@code Option<String> } = Field selector for watch query, default {@code None }
  *  * resourceVersion: {@code Option<String> } = Ressource version to begin watch, default {@code None }
  *  * onApiError: {@code (Throwable, Watcher) -> Unit } = Callback on APi call errors
